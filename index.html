@@ -74,44 +74,89 @@
     const spinBtn = document.getElementById("spin");
     const resultBox = document.getElementById("result");
 
-    const tasks = {
-      1: "Придумай как оказаться за спиной профессора и покривляйся, затем как ни в чем не бывало вернись на место.",
-      2: "Вставь слово «поцелуй» или «соблазн» в собственный ответ на вопрос профессора, сохрани серьезное лицо и жди реакции.",
-      3: "Подсунь записку с фальшивым признанием в любви кому-то из учеников, подписавшись именем профессора.",
-      4: "Прочти абзац из учебника так, будто сгораешь от желания.",
-      5: "Сделай профессору комплимент с налётом флирта.",
-      6: "Запиши провокационную сплетню о себе и запусти ее самолетиком так, чтоб она попала на стол профессора."
-    };
+    
+const tasks = {
+  1: "Ущипни кого-то из присутствующих.",
+  2: "Подсунь записку с фальшивым признанием в любви кому-то из учеников, подписавшись именем профессора.",
+  3: "Предложи кому-нибудь ударить тебя по пятой точке.",
+  4: "Запиши провокационную сплетню о себе и запусти ее самолетиком так, чтоб она попала на стол профессора.",
+  5: "Придумай как оказаться за спиной профессора и покривляйся, затем как ни в чем не бывало вернись на место.",
+  6: "Поднять руку и разговаривать с профессором исключительно при помощи рифмоплетных стихосложений.",
+  7: "Вставь слово «поцелуй» или «соблазн» в собственный ответ на вопрос профессора, сохрани серьезное лицо и жди реакции.",
+  8: "Прочти абзац из учебника так, будто сгораешь от желания.",
+  9: "Поменяйся с кем-то своими носками (не забудь их надеть).",
+  10: "Сделай профессору комплимент с налётом флирта.",
+  11: "Расхваливай себя, как лучшую вторую половинку, которую необходимо иметь всем (как в рекламе).",
+  12: "Внезапно бурно поддержи профессора и толкни речь, словно на выпускном."
+};
 
-    const segments = Object.keys(tasks).map(Number);
-    const colors = ["#f8b195", "#f67280", "#c06c84", "#6c5b7b", "#355c7d", "#99b898"];
-    const anglePerSegment = (2 * Math.PI) / segments.length;
-    let rotation = 0;
-    let spinning = false;
+let segments = Object.keys(tasks).map(Number);
+const colors = ["#f8b195", "#f67280", "#c06c84", "#6c5b7b", "#355c7d", "#99b898", "#f8b195", "#f67280", "#c06c84", "#6c5b7b", "#355c7d", "#99b898"];
+const anglePerSegment = () => (2 * Math.PI) / segments.length;
+let rotation = 0;
+let spinning = false;
 
-    function drawWheel() {
-      for (let i = 0; i < segments.length; i++) {
-        const startAngle = i * anglePerSegment;
-        const endAngle = startAngle + anglePerSegment;
+function drawWheel() {
+  ctx.clearRect(0, 0, 300, 300);
+  for (let i = 0; i < segments.length; i++) {
+    const angle = anglePerSegment();
+    const startAngle = i * angle;
+    const endAngle = startAngle + angle;
 
-        ctx.beginPath();
-        ctx.moveTo(150, 150);
-        ctx.arc(150, 150, 150, startAngle, endAngle);
-        ctx.fillStyle = colors[i];
-        ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(150, 150);
+    ctx.arc(150, 150, 150, startAngle, endAngle);
+    ctx.fillStyle = colors[i % colors.length];
+    ctx.fill();
 
-        ctx.save();
-        ctx.translate(150, 150);
-        ctx.rotate(startAngle + anglePerSegment / 2);
-        ctx.textAlign = "right";
-        ctx.fillStyle = "#fff";
-        ctx.font = "20px Arial";
-        ctx.fillText(segments[i], 140, 10);
-        ctx.restore();
-      }
+    ctx.save();
+    ctx.translate(150, 150);
+    ctx.rotate(startAngle + angle / 2);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#fff";
+    ctx.font = "20px Arial";
+    ctx.fillText(segments[i], 140, 10);
+    ctx.restore();
+  }
+}
+
+drawWheel();
+
+spinBtn.addEventListener("click", () => {
+  if (spinning || segments.length === 0) return;
+  spinning = true;
+  resultBox.textContent = "";
+
+  const spinTime = 4000;
+  const extraDegrees = 360 * 5;
+  const randomSegmentIndex = Math.floor(Math.random() * segments.length);
+  const degreesPerSegment = 360 / segments.length;
+  const stopAngle = (segments.length - randomSegmentIndex) * degreesPerSegment - degreesPerSegment / 2;
+  const finalAngle = rotation + extraDegrees + stopAngle;
+
+  const start = performance.now();
+
+  function animate(time) {
+    const progress = Math.min((time - start) / spinTime, 1);
+    const easeOut = 1 - Math.pow(1 - progress, 3);
+    rotation = finalAngle * easeOut;
+    canvas.style.transform = `rotate(${rotation}deg)`;
+
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      spinning = false;
+      const landedIndex = (segments.length - Math.floor((rotation % 360) / degreesPerSegment)) % segments.length;
+      const taskNumber = segments[landedIndex];
+      resultBox.textContent = `Задание: ${tasks[taskNumber]}`;
+      segments.splice(landedIndex, 1);
+      drawWheel();
     }
+  }
 
-    drawWheel();
+  requestAnimationFrame(animate);
+});
+
 
     spinBtn.addEventListener("click", () => {
       if (spinning) return;
