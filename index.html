@@ -1,8 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Колесо заданий</title>
+  <title>Колесо заданий (с Firebase)</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -61,7 +62,25 @@
     <div id="result" class="result"></div>
   </div>
 
-  <script>
+  <script type="module">
+    // Firebase SDK
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import { getDatabase, ref, get, set, onValue, remove } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAGB8czq8dPpHRhoToaVImZgcHrVuimEmE",
+      authDomain: "wheel-of-tasks.firebaseapp.com",
+      databaseURL: "https://wheel-of-tasks-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "wheel-of-tasks",
+      storageBucket: "wheel-of-tasks.firebasestorage.app",
+      messagingSenderId: "1022732084945",
+      appId: "1:1022732084945:web:4e139e66cd35ea204cc7f0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const usedRef = ref(db, "usedTasks");
+
     const tasks = {
       1: "Ущипни кого-то из присутствующих.",
       2: "Подсунь записку с фальшивым признанием в любви кому-то из учеников, подписавшись именем профессора.",
@@ -77,32 +96,28 @@
       12: "Внезапно бурно поддержи профессора и толкни речь, словно на выпускном."
     };
 
-    let segments = Object.keys(tasks).map(Number);
-    const usedSegments = JSON.parse(localStorage.getItem("usedSegments") || "[]");
-    segments = segments.filter(n => !usedSegments.includes(n));
-
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     const spinBtn = document.getElementById("spin");
+    const resetBtn = document.getElementById("reset");
     const resultBox = document.getElementById("result");
     const colors = ["#f8b195", "#f67280", "#c06c84", "#6c5b7b", "#355c7d", "#99b898"];
-    const anglePerSegment = () => (2 * Math.PI) / segments.length;
+    let segments = [];
     let rotation = 0;
     let spinning = false;
 
     function drawWheel() {
       ctx.clearRect(0, 0, 300, 300);
+      const anglePerSegment = (2 * Math.PI) / segments.length;
       for (let i = 0; i < segments.length; i++) {
-        const angle = anglePerSegment();
+        const angle = anglePerSegment;
         const startAngle = i * angle;
         const endAngle = startAngle + angle;
-
         ctx.beginPath();
         ctx.moveTo(150, 150);
         ctx.arc(150, 150, 150, startAngle, endAngle);
         ctx.fillStyle = colors[i % colors.length];
         ctx.fill();
-
         ctx.save();
         ctx.translate(150, 150);
         ctx.rotate(startAngle + angle / 2);
@@ -114,20 +129,30 @@
       }
     }
 
-    drawWheel();
+    function updateSegments(used) {
+      segments = Object.keys(tasks).map(Number).filter(n => !used.includes(n));
+      drawWheel();
+    }
 
-    spinBtn.addEventListener("click", () => {
+    onValue(usedRef, (snapshot) => {
+      const used = snapshot.val() || [];
+      updateSegments(used);
+    });
+
+    spinBtn.addEventListener("click", async () => {
+      const snapshot = await get(usedRef);
+      const used = snapshot.val() || [];
+      segments = Object.keys(tasks).map(Number).filter(n => !used.includes(n));
       if (spinning || segments.length === 0) return;
+
       spinning = true;
       resultBox.textContent = "";
-
       const spinTime = 4000;
       const extraDegrees = 360 * 5;
       const randomSegmentIndex = Math.floor(Math.random() * segments.length);
       const degreesPerSegment = 360 / segments.length;
       const stopAngle = (segments.length - randomSegmentIndex) * degreesPerSegment - degreesPerSegment / 2;
       const finalAngle = rotation + extraDegrees + stopAngle;
-
       const start = performance.now();
 
       function animate(time) {
@@ -135,7 +160,6 @@
         const easeOut = 1 - Math.pow(1 - progress, 3);
         rotation = finalAngle * easeOut;
         canvas.style.transform = `rotate(${rotation}deg)`;
-
         if (progress < 1) {
           requestAnimationFrame(animate);
         } else {
@@ -143,21 +167,15 @@
           const landedIndex = (segments.length - Math.floor((rotation % 360) / degreesPerSegment)) % segments.length;
           const taskNumber = segments[landedIndex];
           resultBox.textContent = `Задание: ${tasks[taskNumber]}`;
-
-          usedSegments.push(taskNumber);
-          localStorage.setItem("usedSegments", JSON.stringify(usedSegments));
-
-          segments.splice(landedIndex, 1);
-          drawWheel();
+          used.push(taskNumber);
+          set(usedRef, used);
         }
       }
-
       requestAnimationFrame(animate);
     });
 
-    document.getElementById("reset").addEventListener("click", () => {
-      localStorage.removeItem("usedSegments");
-      location.reload();
+    resetBtn.addEventListener("click", () => {
+      remove(usedRef);
     });
   </script>
 </body>
